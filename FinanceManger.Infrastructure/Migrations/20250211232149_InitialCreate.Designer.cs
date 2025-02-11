@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinanceManger.Infrastructure.Migrations
 {
     [DbContext(typeof(FinanceManagerDbContext))]
-    [Migration("20250205115121_InitialCreate")]
+    [Migration("20250211232149_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -28,12 +28,18 @@ namespace FinanceManger.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Type")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserId")

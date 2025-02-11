@@ -5,5 +5,7 @@ public record TransactionResponse(
     Guid UserId,
     string Description,
     decimal Amount,
-    TransactionType Type
+    TransactionType Type,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
 );

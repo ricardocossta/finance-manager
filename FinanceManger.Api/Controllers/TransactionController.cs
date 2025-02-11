@@ -4,6 +4,7 @@ using FinanceManger.Application.Transactions.Commands.UpdateTransaction;
 using FinanceManger.Application.Transactions.Queries.GetTransaction;
 using FinanceManger.Application.Transactions.Queries.GetTransactions;
 using FinanceManger.Contracts.Transactions;
+using FinanceManger.Domain.Transactions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -37,12 +38,7 @@ public class TransactionController : ControllerBase
 
         return createTransactionResult.IsFailed
             ? Problem()
-            : CreatedAtAction(nameof(GetTransaction), new TransactionResponse(
-                createTransactionResult.Value.Id,
-                request.UserId,
-                request.Description,
-                request.Amount,
-                request.Type));
+            : CreatedAtAction(nameof(GetTransaction), MapTransactionToTransactionResponse(createTransactionResult.Value));
     }
 
     [HttpGet("transactionId")]
@@ -54,12 +50,7 @@ public class TransactionController : ControllerBase
 
         return getTransactionResult.IsFailed
             ? NotFound(getTransactionResult.Errors[0].Message)
-            : Ok(new TransactionResponse(
-                getTransactionResult.Value.Id,
-                getTransactionResult.Value.UserId,
-                getTransactionResult.Value.Description,
-                getTransactionResult.Value.Amount,
-                Enum.Parse<TransactionType>(getTransactionResult.Value.Type.ToString())));
+            : Ok(MapTransactionToTransactionResponse(getTransactionResult.Value));
     }
 
     [HttpGet]
@@ -74,12 +65,7 @@ public class TransactionController : ControllerBase
             return NoContent();
         }
 
-        return Ok(getTransactionsResult.Select(t => new TransactionResponse(
-            t.Id,
-            t.UserId,
-            t.Description,
-            t.Amount,
-            Enum.Parse<TransactionType>(t.Type.ToString()))));
+        return Ok(getTransactionsResult.Select(MapTransactionToTransactionResponse));
     }
 
     [HttpDelete("transactionId")]
@@ -111,5 +97,17 @@ public class TransactionController : ControllerBase
         return updateTransactionResult.IsFailed
             ? Problem()
             : Ok();
+    }
+
+    private static TransactionResponse MapTransactionToTransactionResponse(Transaction transaction)
+    {
+        return new TransactionResponse(
+            transaction.Id,
+            transaction.UserId,
+            transaction.Description,
+            transaction.Amount,
+            Enum.Parse<Contracts.Transactions.TransactionType>(transaction.Type.ToString()),
+            transaction.CreatedAt,
+            transaction.UpdatedAt);
     }
 }
