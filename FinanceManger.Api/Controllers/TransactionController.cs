@@ -38,19 +38,30 @@ public class TransactionController : ControllerBase
 
         return createTransactionResult.IsFailed
             ? Problem()
-            : CreatedAtAction(nameof(GetTransaction), MapTransactionToTransactionResponse(createTransactionResult.Value));
+            : CreatedAtAction(
+                nameof(GetTransaction),
+                new { transactionId = createTransactionResult.Value.Id },
+                MapTransactionToTransactionResponse(createTransactionResult.Value));
     }
 
-    [HttpGet("transactionId")]
+    [HttpGet("{transactionId}")]
     public async Task<IActionResult> GetTransaction(Guid transactionId)
     {
         var query = new GetTransactionQuery(transactionId);
 
         var getTransactionResult = await _mediator.Send(query);
 
-        return getTransactionResult.IsFailed
-            ? NotFound(getTransactionResult.Errors[0].Message)
-            : Ok(MapTransactionToTransactionResponse(getTransactionResult.Value));
+        if (getTransactionResult.IsFailed)
+        {
+            var error = getTransactionResult.Errors[0];
+            
+            if (error.Metadata.TryGetValue("Error", out var errorType) && errorType is TransactionErrors.TransactionNotFound)
+            {
+                return NotFound(error.Message);
+            }
+        }
+
+        return Ok(MapTransactionToTransactionResponse(getTransactionResult.Value));
     }
 
     [HttpGet]
@@ -68,18 +79,26 @@ public class TransactionController : ControllerBase
         return Ok(getTransactionsResult.Select(MapTransactionToTransactionResponse));
     }
 
-    [HttpDelete("transactionId")]
+    [HttpDelete("{transactionId}")]
     public async Task<IActionResult> DeleteTransaction(Guid transactionId)
     {
         var command = new DeleteTransactionCommand(transactionId);
         var deleteTransactionResult = await _mediator.Send(command);
 
-        return deleteTransactionResult.IsFailed
-            ? NotFound(deleteTransactionResult.Errors[0].Message)
-            : NoContent();
+        if (deleteTransactionResult.IsFailed)
+        {
+            var error = deleteTransactionResult.Errors[0];
+
+            if (error.Metadata.TryGetValue("Error", out var errorType) && errorType is TransactionErrors.TransactionNotFound)
+            {
+                return NotFound(error.Message);
+            }
+        }
+
+        return NoContent();
     }
 
-    [HttpPut("transactionId")]
+    [HttpPut("{transactionId}")]
     public async Task<IActionResult> UpdateTransaction(Guid transactionId, [FromBody] UpdateTransactionRequest request)
     {
         if (!Enum.IsDefined(typeof(Domain.Transactions.TransactionType), (int)request.Type))
@@ -94,9 +113,17 @@ public class TransactionController : ControllerBase
 
         var updateTransactionResult = await _mediator.Send(command);
 
-        return updateTransactionResult.IsFailed
-            ? Problem()
-            : Ok();
+        if (updateTransactionResult.IsFailed)
+        {
+            var error = updateTransactionResult.Errors[0];
+
+            if (error.Metadata.TryGetValue("Error", out var errorType) && errorType is TransactionErrors.TransactionNotFound)
+            {
+                return NotFound(error.Message);
+            }
+        }
+
+        return Ok();
     }
 
     private static TransactionResponse MapTransactionToTransactionResponse(Transaction transaction)

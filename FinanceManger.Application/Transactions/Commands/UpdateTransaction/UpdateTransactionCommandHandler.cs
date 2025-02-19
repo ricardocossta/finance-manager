@@ -1,4 +1,5 @@
 ﻿using FinanceManger.Application.Common.Interfaces;
+using FinanceManger.Domain.Transactions;
 using FluentResults;
 using MediatR;
 
@@ -21,7 +22,8 @@ public class UpdateTransactionCommandHandler : IRequestHandler<UpdateTransaction
 
         if (transaction is null)
         {
-            return Result.Fail($"Transaction with id {request.Id} not found.");
+            return Result.Fail(new Error($"Transaction with id {request.Id} not found.")
+                .WithMetadata("Error", TransactionErrors.TransactionNotFound));
         }
 
         transaction.Update(request.Description, request.Amount, request.Type);
