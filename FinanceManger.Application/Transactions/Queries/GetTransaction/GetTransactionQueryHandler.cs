@@ -19,7 +19,7 @@ public class GetTransactionQueryHandler : IRequestHandler<GetTransactionQuery, R
         var transaction = await _transactionRepository.GetByIdAsync(request.Id);
 
         return transaction is null
-            ? Result.Fail($"Transaction with id {request.Id} not found.")
-            : transaction;
+            ? Result.Fail(TransactionErrors.TransactionNotFound)
+            : Result.Ok(transaction);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using FinanceManger.Application.Common.Interfaces;
+using FinanceManger.Domain.Transactions;
 using FluentResults;
 using MediatR;
 
@@ -21,10 +22,15 @@ public class UpdateTransactionCommandHandler : IRequestHandler<UpdateTransaction
 
         if (transaction is null)
         {
-            return Result.Fail($"Transaction with id {request.Id} not found.");
+            return Result.Fail(TransactionErrors.TransactionNotFound);
         }
 
-        transaction.Update(request.Description, request.Amount, request.Type);
+        var updateTransactionResult = transaction.Update(request.Description, request.Amount, request.Type);
+
+        if (updateTransactionResult.IsFailed)
+        {
+            return updateTransactionResult;
+        }
 
         _transactionRepository.Update(transaction);
         await _unitOfWork.CommitChangesAsync();

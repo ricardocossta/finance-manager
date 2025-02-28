@@ -1,4 +1,5 @@
 ﻿using FinanceManger.Application.Common.Interfaces;
+using FinanceManger.Domain.Transactions;
 using FluentResults;
 using MediatR;
 
@@ -17,11 +18,11 @@ public class DeleteTransactionCommandHandler : IRequestHandler<DeleteTransaction
 
     public async Task<Result> Handle(DeleteTransactionCommand request, CancellationToken cancellationToken)
     {
-        var transaction = await _transactionRepository.GetByIdAsync(request.TransactionId);
+        var transaction = await _transactionRepository.GetByIdAsync(request.Id);
 
         if (transaction is null)
         {
-            return Result.Fail($"Transaction with id {request.TransactionId} not found.");
+            return Result.Fail(TransactionErrors.TransactionNotFound);
         }
 
         _transactionRepository.Delete(transaction);

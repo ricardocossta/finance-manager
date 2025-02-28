@@ -18,16 +18,21 @@ public class CreateTransactionCommandHandler : IRequestHandler<CreateTransaction
 
     public async Task<Result<Transaction>> Handle(CreateTransactionCommand request, CancellationToken cancellationToken)
     {
-        var transaction = new Transaction(
+        var createTransactionResult = Transaction.Create(
             request.Description,
             request.Amount,
             request.Type,
             request.UserId
         );
 
-        await _transactionRepository.AddAsync(transaction);
+        if (createTransactionResult.IsFailed)
+        {
+            return createTransactionResult;
+        }
+
+        await _transactionRepository.AddAsync(createTransactionResult.Value);
         await _unitOfWork.CommitChangesAsync();
 
-        return transaction;
+        return createTransactionResult;
     }
 }

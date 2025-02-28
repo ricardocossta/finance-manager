@@ -4,6 +4,9 @@ using FinanceManger.Application.Transactions.Commands.UpdateTransaction;
 using FinanceManger.Application.Transactions.Queries.GetTransaction;
 using FinanceManger.Application.Transactions.Queries.GetTransactions;
 using FinanceManger.Contracts.Transactions;
+using FinanceManger.Domain.Shared;
+using FinanceManger.Domain.Transactions;
+using FluentResults;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,31 +38,30 @@ public class TransactionController : ControllerBase
 
         var createTransactionResult = await _mediator.Send(command);
 
-        return createTransactionResult.IsFailed
-            ? Problem()
-            : CreatedAtAction(nameof(GetTransaction), new TransactionResponse(
-                createTransactionResult.Value.Id,
-                request.UserId,
-                request.Description,
-                request.Amount,
-                request.Type));
+        if (createTransactionResult.IsFailed)
+        {
+            return Problem(createTransactionResult.Errors);
+        }
+
+        return CreatedAtAction(
+            nameof(GetTransaction),
+            new { transactionId = createTransactionResult.Value.Id },
+            MapTransactionToTransactionResponse(createTransactionResult.Value));
     }
 
-    [HttpGet("transactionId")]
+    [HttpGet("{transactionId}")]
     public async Task<IActionResult> GetTransaction(Guid transactionId)
     {
         var query = new GetTransactionQuery(transactionId);
 
         var getTransactionResult = await _mediator.Send(query);
 
-        return getTransactionResult.IsFailed
-            ? NotFound(getTransactionResult.Errors[0].Message)
-            : Ok(new TransactionResponse(
-                getTransactionResult.Value.Id,
-                getTransactionResult.Value.UserId,
-                getTransactionResult.Value.Description,
-                getTransactionResult.Value.Amount,
-                Enum.Parse<TransactionType>(getTransactionResult.Value.Type.ToString())));
+        if (getTransactionResult.IsFailed)
+        {
+            return Problem(getTransactionResult.Errors);
+        }
+
+        return Ok(MapTransactionToTransactionResponse(getTransactionResult.Value));
     }
 
     [HttpGet]
@@ -67,33 +69,31 @@ public class TransactionController : ControllerBase
     {
         var query = new GetTransactionsQuery();
 
-        var getTransactionsResult = await _mediator.Send(query);
+        var transactions = await _mediator.Send(query);
 
-        if (getTransactionsResult.Count == 0)
+        if (transactions.Count == 0)
         {
             return NoContent();
         }
 
-        return Ok(getTransactionsResult.Select(t => new TransactionResponse(
-            t.Id,
-            t.UserId,
-            t.Description,
-            t.Amount,
-            Enum.Parse<TransactionType>(t.Type.ToString()))));
+        return Ok(transactions.Select(MapTransactionToTransactionResponse));
     }
 
-    [HttpDelete("transactionId")]
+    [HttpDelete("{transactionId}")]
     public async Task<IActionResult> DeleteTransaction(Guid transactionId)
     {
         var command = new DeleteTransactionCommand(transactionId);
         var deleteTransactionResult = await _mediator.Send(command);
 
-        return deleteTransactionResult.IsFailed
-            ? NotFound(deleteTransactionResult.Errors[0].Message)
-            : NoContent();
+        if (deleteTransactionResult.IsFailed)
+        {
+            return Problem(deleteTransactionResult.Errors);
+        }
+
+        return NoContent();
     }
 
-    [HttpPut("transactionId")]
+    [HttpPut("{transactionId}")]
     public async Task<IActionResult> UpdateTransaction(Guid transactionId, [FromBody] UpdateTransactionRequest request)
     {
         if (!Enum.IsDefined(typeof(Domain.Transactions.TransactionType), (int)request.Type))
@@ -108,8 +108,42 @@ public class TransactionController : ControllerBase
 
         var updateTransactionResult = await _mediator.Send(command);
 
-        return updateTransactionResult.IsFailed
-            ? Problem()
-            : Ok();
+        if (updateTransactionResult.IsFailed)
+        {
+            return Problem(updateTransactionResult.Errors);
+        }
+
+        return Ok();
+    }
+
+    private ObjectResult Problem(List<IError> errors)
+    {
+        if (errors.Count == 0)
+        {
+            return Problem();
+        }
+
+        var statusCode = errors[0].Metadata["ErrorType"] switch
+        {
+            ErrorType.Validation => StatusCodes.Status400BadRequest,
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        var errorMessage = errors[0].Message;
+
+        return Problem(statusCode: statusCode, detail: errorMessage);
+    }
+
+    private static TransactionResponse MapTransactionToTransactionResponse(Transaction transaction)
+    {
+        return new TransactionResponse(
+            transaction.Id,
+            transaction.UserId,
+            transaction.Description,
+            transaction.Amount,
+            Enum.Parse<Contracts.Transactions.TransactionType>(transaction.Type.ToString()),
+            transaction.CreatedAt,
+            transaction.UpdatedAt);
     }
 }
