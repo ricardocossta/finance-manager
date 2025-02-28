@@ -4,7 +4,9 @@ using FinanceManger.Application.Transactions.Commands.UpdateTransaction;
 using FinanceManger.Application.Transactions.Queries.GetTransaction;
 using FinanceManger.Application.Transactions.Queries.GetTransactions;
 using FinanceManger.Contracts.Transactions;
+using FinanceManger.Domain.Shared;
 using FinanceManger.Domain.Transactions;
+using FluentResults;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,12 +38,15 @@ public class TransactionController : ControllerBase
 
         var createTransactionResult = await _mediator.Send(command);
 
-        return createTransactionResult.IsFailed
-            ? Problem()
-            : CreatedAtAction(
-                nameof(GetTransaction),
-                new { transactionId = createTransactionResult.Value.Id },
-                MapTransactionToTransactionResponse(createTransactionResult.Value));
+        if (createTransactionResult.IsFailed)
+        {
+            return Problem(createTransactionResult.Errors);
+        }
+
+        return CreatedAtAction(
+            nameof(GetTransaction),
+            new { transactionId = createTransactionResult.Value.Id },
+            MapTransactionToTransactionResponse(createTransactionResult.Value));
     }
 
     [HttpGet("{transactionId}")]
@@ -53,12 +58,7 @@ public class TransactionController : ControllerBase
 
         if (getTransactionResult.IsFailed)
         {
-            var error = getTransactionResult.Errors[0];
-            
-            if (error.Metadata.TryGetValue("Error", out var errorType) && errorType is TransactionErrors.TransactionNotFound)
-            {
-                return NotFound(error.Message);
-            }
+            return Problem(getTransactionResult.Errors);
         }
 
         return Ok(MapTransactionToTransactionResponse(getTransactionResult.Value));
@@ -69,14 +69,14 @@ public class TransactionController : ControllerBase
     {
         var query = new GetTransactionsQuery();
 
-        var getTransactionsResult = await _mediator.Send(query);
+        var transactions = await _mediator.Send(query);
 
-        if (getTransactionsResult.Count == 0)
+        if (transactions.Count == 0)
         {
             return NoContent();
         }
 
-        return Ok(getTransactionsResult.Select(MapTransactionToTransactionResponse));
+        return Ok(transactions.Select(MapTransactionToTransactionResponse));
     }
 
     [HttpDelete("{transactionId}")]
@@ -87,12 +87,7 @@ public class TransactionController : ControllerBase
 
         if (deleteTransactionResult.IsFailed)
         {
-            var error = deleteTransactionResult.Errors[0];
-
-            if (error.Metadata.TryGetValue("Error", out var errorType) && errorType is TransactionErrors.TransactionNotFound)
-            {
-                return NotFound(error.Message);
-            }
+            return Problem(deleteTransactionResult.Errors);
         }
 
         return NoContent();
@@ -115,15 +110,29 @@ public class TransactionController : ControllerBase
 
         if (updateTransactionResult.IsFailed)
         {
-            var error = updateTransactionResult.Errors[0];
-
-            if (error.Metadata.TryGetValue("Error", out var errorType) && errorType is TransactionErrors.TransactionNotFound)
-            {
-                return NotFound(error.Message);
-            }
+            return Problem(updateTransactionResult.Errors);
         }
 
         return Ok();
+    }
+
+    private ObjectResult Problem(List<IError> errors)
+    {
+        if (errors.Count == 0)
+        {
+            return Problem();
+        }
+
+        var statusCode = errors[0].Metadata["ErrorType"] switch
+        {
+            ErrorType.Validation => StatusCodes.Status400BadRequest,
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        var errorMessage = errors[0].Message;
+
+        return Problem(statusCode: statusCode, detail: errorMessage);
     }
 
     private static TransactionResponse MapTransactionToTransactionResponse(Transaction transaction)

@@ -30,11 +30,18 @@ public class Transaction : BaseEntity
         return Result.Ok(transaction);
     }
 
-    public void Update(string description, decimal amount, TransactionType type)
+    public Result Update(string description, decimal amount, TransactionType type)
     {
+        if (amount <= 0)
+        {
+            return Result.Fail(TransactionErrors.AmountMustBeGreaterThanZero);
+        }
+
         Description = description;
         Amount = amount;
         Type = type;
         UpdatedAt = DateTime.UtcNow;
+
+        return Result.Ok();
     }
 }

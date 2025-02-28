@@ -22,11 +22,15 @@ public class UpdateTransactionCommandHandler : IRequestHandler<UpdateTransaction
 
         if (transaction is null)
         {
-            return Result.Fail(new Error($"Transaction with id {request.Id} not found.")
-                .WithMetadata("Error", TransactionErrors.TransactionNotFound));
+            return Result.Fail(TransactionErrors.TransactionNotFound);
         }
 
-        transaction.Update(request.Description, request.Amount, request.Type);
+        var updateTransactionResult = transaction.Update(request.Description, request.Amount, request.Type);
+
+        if (updateTransactionResult.IsFailed)
+        {
+            return updateTransactionResult;
+        }
 
         _transactionRepository.Update(transaction);
         await _unitOfWork.CommitChangesAsync();

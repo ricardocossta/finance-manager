@@ -22,8 +22,7 @@ public class DeleteTransactionCommandHandler : IRequestHandler<DeleteTransaction
 
         if (transaction is null)
         {
-            return Result.Fail(new Error($"Transaction with id {request.Id} not found.")
-                .WithMetadata("Error", TransactionErrors.TransactionNotFound));
+            return Result.Fail(TransactionErrors.TransactionNotFound);
         }
 
         _transactionRepository.Delete(transaction);
