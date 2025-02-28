@@ -1,4 +1,6 @@
-﻿namespace FinanceManger.Domain.Transactions;
+﻿using FluentResults;
+
+namespace FinanceManger.Domain.Transactions;
 
 public class Transaction : BaseEntity
 {
@@ -9,12 +11,23 @@ public class Transaction : BaseEntity
 
     private Transaction() : base() { }
 
-    public Transaction(string description, decimal amount, TransactionType type, Guid userId, Guid? id = null) : base(id)
+    private Transaction(string description, decimal amount, TransactionType type, Guid userId, Guid? id = null) : base(id)
     {
         Description = description;
         Amount = amount;
         Type = type;
         UserId = userId;
+    }
+
+    public static Result<Transaction> Create(string description, decimal amount, TransactionType type, Guid userId, Guid? id = null)
+    {
+        if (amount <= 0)
+        {
+            return Result.Fail(TransactionErrors.AmountMustBeGreaterThanZero);
+        }
+
+        var transaction = new Transaction(description, amount, type, userId, id);
+        return Result.Ok(transaction);
     }
 
     public void Update(string description, decimal amount, TransactionType type)

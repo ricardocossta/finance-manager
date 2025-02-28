@@ -1,6 +1,10 @@
-﻿namespace FinanceManger.Domain.Transactions;
+﻿using FluentResults;
 
-public enum TransactionErrors
+namespace FinanceManger.Domain.Transactions;
+
+public static class TransactionErrors
 {
-    TransactionNotFound
+    public static readonly Error AmountMustBeGreaterThanZero = new Error(
+        "Amount must be greater than 0")
+        .WithMetadata("ErrorCode", nameof(AmountMustBeGreaterThanZero));
 }
